@@ -2,7 +2,7 @@
 This module implements Typed Lua symbol table.
 ]]
 
-local tltype = require "typedlua.tltype"
+local tltype = require "typedlua/tltype"
 
 local tlst = {}
 

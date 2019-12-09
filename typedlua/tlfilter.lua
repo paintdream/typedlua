@@ -1,4 +1,4 @@
-local tltype = require "typedlua.tltype"
+local tltype = require "typedlua/tltype"
 
 local tlfilter = {}
 

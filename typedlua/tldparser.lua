@@ -7,9 +7,9 @@ local tldparser = {}
 local lpeg = require "lpeg"
 lpeg.locale(lpeg)
 
-local tlast = require "typedlua.tlast"
-local tllexer = require "typedlua.tllexer"
-local tltype = require "typedlua.tltype"
+local tlast = require "typedlua/tlast"
+local tllexer = require "typedlua/tllexer"
+local tltype = require "typedlua/tltype"
 
 local G = lpeg.P { "TypedLuaDescription";
   TypedLuaDescription = tllexer.Skip * lpeg.V("DescriptionList") * -1 +

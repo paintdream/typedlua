@@ -57,7 +57,7 @@ end
 
 -- isFloat : (type) -> (boolean)
 function tltype.isFloat (t)
-  if _VERSION == "Lua 5.3" then
+  if _VERSION == "Lua 5.3" or _VERSION == "Lua 5.4" then
     return tltype.isLiteral(t) and math.type(t[1]) == "float"
   else
     return false
@@ -66,7 +66,7 @@ end
 
 -- isInt : (type) -> (boolean)
 function tltype.isInt (t)
-  if _VERSION == "Lua 5.3" then
+  if _VERSION == "Lua 5.3" or _VERSION == "Lua 5.4" then
     return tltype.isLiteral(t) and math.type(t[1]) == "integer"
   else
     return false
@@ -834,7 +834,9 @@ local function subtype_table (env, t1, t2, relation)
             break
           end
         end
-        if not subtype then return false end
+  if not subtype and t2[i][1][1] ~= "New" and t2[i][1][1] ~= "new" then
+    return false
+  end
       end
       return true
     end

@@ -73,7 +73,7 @@ base: 'boolean' | 'number' | 'string'
 field: `TField{ <string> type }
 ]]
 
-local tltype = require "typedlua.tltype"
+local tltype = require "typedlua/tltype"
 
 local tlast = {}
 
@@ -440,9 +440,9 @@ local function fixed_string (str)
     elseif char == 11 then new_str = new_str .. string.format("\\v")
     else
       if isprint(char) then
-        new_str = new_str .. string.format("%c", char)
+  new_str = new_str .. string.format("%c", char)
       else
-        new_str = new_str .. string.format("\\%03d", char)
+  new_str = new_str .. string.format("\\%03d", char)
       end
     end
   end

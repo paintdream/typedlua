@@ -5,13 +5,14 @@ This file implements Typed Lua type checker
 local unpack = table.unpack or unpack
 
 local tlchecker = {}
+tlchecker.extramods = {}
 
-local tlast = require "typedlua.tlast"
-local tlst = require "typedlua.tlst"
-local tltype = require "typedlua.tltype"
-local tlparser = require "typedlua.tlparser"
-local tldparser = require "typedlua.tldparser"
-local tlfilter = require "typedlua.tlfilter"
+local tlast = require "typedlua/tlast"
+local tlst = require "typedlua/tlst"
+local tltype = require "typedlua/tltype"
+local tlparser = require "typedlua/tlparser"
+local tldparser = require "typedlua/tldparser"
+local tlfilter = require "typedlua/tlfilter"
 
 local Value = tltype.Value()
 local Any = tltype.Any()
@@ -55,11 +56,14 @@ local check_self_field
 
 local function check_self (env, torig, t, pos)
   local bold_token = env.color and acolor.bold .. "'%s'" .. acolor.reset or "'%s'"
+  --[[
   local msg = string.format("self type appearing in a place that is not a first parameter or a return type inside type " .. bold_token, tltype.tostring(torig))
-  if tltype.isSelf(t) then
+    if tltype.isSelf(t) then
     typeerror(env, "self", msg, pos)
     return tltype.Any()
-  elseif tltype.isRecursive(t) then
+  else
+  ]]
+  if tltype.isRecursive(t) then
     local r = tltype.Recursive(t[1], check_self(env, torig, t[2], pos))
     r.name = t.name
     return r
@@ -141,7 +145,12 @@ end
 local function get_interface (env, name, pos)
   local t = tlst.get_interface(env, name)
   if not t then
-    return tltype.GlobalVariable(env, name, pos, typeerror)
+    t = tlst.get_local(env, name)
+    if not t then
+      return tltype.GlobalVariable(env, name, pos, typeerror)
+    else
+      return get_type(t)
+    end
   else
     return t
   end
@@ -830,7 +839,7 @@ end
 
 local function check_function (env, exp, tself)
   local oself = env.self
-  env.self = tself
+  env.self = tself or oself
   local idlist, ret_type, block = exp[1], replace_names(env, exp[2], exp.pos), exp[3]
   local infer_return = false
   if not block then
@@ -1368,7 +1377,7 @@ local function check_while (env, stm)
   tlst.push_backup(env, true)
   local fs = check_exp(env, exp1) or {}
   tlst.push_break(env)
-  if apply_filters(env, true, fs, exp1.pos) then -- while block is unreacheable
+  if false and apply_filters(env, true, fs, exp1.pos) then -- while block is unreacheable
     typeerror(env, "dead", "'while' body is unreacheable", stm.pos)
     tlst.pop_backup(env)
     return false
@@ -1433,7 +1442,7 @@ local function check_if (env, stm)
     for _, fs_pos in ipairs(prevfs) do
       has_void = has_void or apply_filters(env, false, fs_pos[1], fs_pos[2])
     end
-    if has_void then -- rest of the if is unreacheable (previous condition is always true)
+    if false and has_void then -- rest of the if is unreacheable (previous condition is always true)
       if stm[i] then
         if i == last then
           typeerror(env, "dead", "'else' block is unreacheable", stm[i].pos)
@@ -1464,7 +1473,7 @@ local function check_if (env, stm)
       dg[#dg+1] = didgoto
     else
       if exp then
-        typeerror(env, "dead", "this arm of the 'if' is unreacheable", exp.pos)
+	--typeerror(env, "dead", "this arm of the 'if' is unreacheable", exp.pos)
       end
     end
     local frame = tlst.pop_backup(env)
@@ -1741,6 +1750,17 @@ function check_var (env, var, exp)
       -- another brittle hack for defining methods
       if exp1.tag == "Id" and exp1[1] ~= "_ENV" then env.self = t1 end
       local field_type = tltype.getField(t2, t1)
+      if (t2[1] == "new" or t2[1] == "New") and not tltype.isNil(field_type) then
+        t1.open = true
+        for i, v in ipairs(t1) do
+           if tltype.consistent_subtype(t2, v[1]) then
+            table.remove(t1, i)
+            break
+           end
+        end
+      end
+
+      field_type = tltype.getField(t2, t1)
       if not tltype.isNil(field_type) then
         set_type(var, field_type)
       else
@@ -1880,7 +1900,7 @@ local function check_stms (env, block)
     env.self = bkp
     if r and not didgoto then
       if i ~= #block then
-        typeerror(env, "dead", "unreacheable statement", block[i+1].pos)
+  --typeerror(env, "dead", "unreacheable statement", block[i+1].pos)
       end
       break
     end -- rest of the block is unreacheable
@@ -1906,7 +1926,7 @@ local function load_lua_env (env)
   elseif _VERSION == "Lua 5.2" then
     path = path .. "lsl52/"
     l = { "coroutine", "package", "string", "table", "math", "bit32", "io", "os", "debug" }
-  elseif _VERSION == "Lua 5.3" then
+  elseif _VERSION == "Lua 5.3" or _VERSION == "Lua 5.4" then
     path = path .. "lsl53/"
     l = { "coroutine", "package", "string", "utf8", "table", "math", "io", "os", "debug" }
   else
@@ -1916,6 +1936,12 @@ local function load_lua_env (env)
   for _, v in ipairs(l) do
     local t1 = tltype.Literal(v)
     local t2 = check_require(env, v, 0, path)
+    local f = tltype.Field(false, t1, t2)
+    table.insert(t, f)
+  end
+  for _, v in ipairs(tlchecker.extramods) do
+    local t1 = tltype.Literal(v)
+    local t2 = check_require(env, v, 0, "")
     local f = tltype.Field(false, t1, t2)
     table.insert(t, f)
   end
@@ -1934,7 +1960,7 @@ function tlchecker.typecheck (ast, subject, filename, strict, integer, color)
   assert(type(strict) == "boolean")
   assert(type(color) == "boolean")
   local env = tlst.new_env(subject, filename, strict, color)
-  if integer and _VERSION == "Lua 5.3" then
+  if integer and _VERSION == "Lua 5.3" or _VERSION == "Lua 5.4" then
     Integer = tltype.Integer(true)
     env.integer = true
     tltype.integer = true

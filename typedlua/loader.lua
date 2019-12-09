@@ -1,5 +1,6 @@
 --[[
 This file implements a Typed Lua module loader
+Modified by PaintDream.
 ]]
 local lua_loadstring, lua_load, lua_loadfile, lua_dofile, lua_searchpath = loadstring or load, load, loadfile, dofile, package.searchpath
 
@@ -8,9 +9,9 @@ local lua_loadstring, lua_load, lua_loadfile, lua_dofile, lua_searchpath = loads
 -- Typed Lua compiler
 -------------------------------------------------------------------------------
 
-local tlparser  = require "typedlua.tlparser"
-local tlchecker = require "typedlua.tlchecker"
-local tlcode    = require "typedlua.tlcode"
+local tlparser  = require "typedlua/tlparser"
+local tlchecker = require "typedlua/tlchecker"
+local tlcode    = require "typedlua/tlcode"
 
 local COLOR = false
 
@@ -22,10 +23,11 @@ local opts =
   INTEGER = false,
   SHOW_WARNINGS = true
 }
-if _VERSION == "Lua 5.3" then opts.INTEGER = true end
+if _VERSION == "Lua 5.3" or _VERSION == "Lua 5.4" then opts.INTEGER = true end
 
 -- Compiles Typed Lua into Lua code
-function tlloader.compile (code, chunkname, color)
+function tlloader.compile (code, chunkname, color, options)
+  options = options or opts 
   local code_t = type(code)
   if code_t ~= "string" then
     return nil, "expecting string (got " .. code_t .. ")"
@@ -34,27 +36,27 @@ function tlloader.compile (code, chunkname, color)
   COLOR = color
 
   -- Parse
-  local ast, err = tlparser.parse(code, chunkname, opts.STRICT, opts.INTEGER)
+  local ast, err = tlparser.parse(code, chunkname, options.STRICT, options.INTEGER)
   if not ast then
     return nil, err
   end
 
   -- Typecheck
-  local messages = tlchecker.typecheck(ast, code, chunkname, opts.STRICT, opts.INTEGER, color)
+  local messages = tlchecker.typecheck(ast, code, chunkname, options.STRICT, options.INTEGER, color)
 
   -- Check if there were errors
   local has_errors = tlchecker.error_msgs(messages, false)
 
   -- Produce output with warnings when needed
   local errors_and_warnings
-  if has_errors or opts.SHOW_WARNINGS then
+  if has_errors or options.SHOW_WARNINGS then
     errors_and_warnings = tlchecker.error_msgs(messages, true)
   end
 
   if has_errors then
     -- Abort execution
     return nil, errors_and_warnings
-  elseif opts.SHOW_WARNINGS and errors_and_warnings then
+  elseif options.SHOW_WARNINGS and errors_and_warnings then
     -- Print the warnings if requested
     print(errors_and_warnings)
   end

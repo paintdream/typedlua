@@ -7,10 +7,10 @@ local tlparser = {}
 local lpeg = require "lpeg"
 lpeg.locale(lpeg)
 
-local tlast = require "typedlua.tlast"
-local tllexer = require "typedlua.tllexer"
-local tlst = require "typedlua.tlst"
-local tltype = require "typedlua.tltype"
+local tlast = require "typedlua/tlast"
+local tllexer = require "typedlua/tllexer"
+local tlst = require "typedlua/tlst"
+local tltype = require "typedlua/tltype"
 
 local function chainl1 (pat, sep)
   return lpeg.Cf(pat * lpeg.Cg(sep * pat)^0, tlast.exprBinaryOp)
